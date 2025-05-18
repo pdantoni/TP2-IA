@@ -4,7 +4,7 @@ import random
 from enum import IntEnum
 
 # Categorías
-PAISES       = IntEnum("PAIS",      ["JAPÓN", "ITALIA", "FRANCIA", "TAILANDIA", "ESPAÑA"])
+PAISES       = IntEnum("PAIS",      ["JAPON", "ITALIA", "FRANCIA", "TAILANDIA", "ESPANA"])
 PLATOS       = IntEnum("PLATO",     ["SUSHI", "CURRY", "TACOS", "RISOTTO", "CEVICHE"])
 DIAS         = IntEnum("DIA",       ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES"])
 INGREDIENTES = IntEnum("ING",       ["ALBAHACA", "AJO", "AZAFRAN", "CILANTRO", "JENGIBRE"])
@@ -37,137 +37,199 @@ def imprimir_ind(ind):
     print("\n")
 
 def crear_ind(cls, str_cls):
-    ind = cls()
-    for i in range(CANT_CHEF * TAM_CHEF):
-        ind.append(random.randint(1, 5))
-    
+    ind = []
+
+    # Valores únicos
+    platos = random.sample(range(1, 6), 5)
+    ingredientes = random.sample(range(1, 6), 5)
+    estilos = random.sample(range(1, 6), 5)
+    dias = random.sample(range(1, 6), 5)
+
+    random.shuffle(platos)
+    random.shuffle(ingredientes)
+    random.shuffle(estilos)
+    random.shuffle(dias)
+
+    # Inicializar el individuo con valores vacíos
+    ind = [None] * (CANT_CHEF * TAM_CHEF)
+
+    # Forzar asignaciones específicas según las condiciones
+    # Chef Japonés → SUSHI, MARTES
+    ind[(PAISES.JAPON - 1) * TAM_CHEF + POS_PLATO] = PLATOS.SUSHI
+    ind[(PAISES.JAPON - 1) * TAM_CHEF + POS_DIA] = DIAS.MARTES
+
+    # Chef Italiano → ALBAHACA
+    ind[(PAISES.ITALIA - 1) * TAM_CHEF + POS_ING] = INGREDIENTES.ALBAHACA
+
+    # Chef Francés → MIÉRCOLES
+    ind[(PAISES.FRANCIA - 1) * TAM_CHEF + POS_DIA] = DIAS.MIERCOLES
+
+    # Chef Tailandés → CURRY y AL_VAPOR
+    ind[(PAISES.TAILANDIA - 1) * TAM_CHEF + POS_PLATO] = PLATOS.CURRY
+    ind[(PAISES.TAILANDIA - 1) * TAM_CHEF + POS_ESTILO] = ESTILOS.AL_VAPOR
+
+    # Chef Español → Ninguno de estos
+    # Evitar CEVICHE y AZAFRÁN más adelante
+
+    # Asignar platos restantes
+    usados_platos = {PLATOS.SUSHI, PLATOS.CURRY}
+    restantes_platos = [p for p in platos if p not in usados_platos]
+    for i in range(CANT_CHEF):
+        if ind[i * TAM_CHEF + POS_PLATO] is None:
+            ind[i * TAM_CHEF + POS_PLATO] = restantes_platos.pop()
+
+    # Asignar ingredientes restantes
+    usados_ing = {INGREDIENTES.ALBAHACA}
+    restantes_ing = [i for i in ingredientes if i not in usados_ing]
+    for i in range(CANT_CHEF):
+        if ind[i * TAM_CHEF + POS_ING] is None:
+            nuevo_ing = restantes_ing.pop()
+            if i == PAISES.ESPANA - 1 and nuevo_ing == INGREDIENTES.AZAFRAN:
+                restantes_ing.insert(0, nuevo_ing)  # evitar azafrán en español
+                nuevo_ing = restantes_ing.pop()
+            ind[i * TAM_CHEF + POS_ING] = nuevo_ing
+
+    # Asignar estilos restantes
+    usados_estilos = {ESTILOS.AL_VAPOR}
+    restantes_estilos = [e for e in estilos if e not in usados_estilos]
+    for i in range(CANT_CHEF):
+        if ind[i * TAM_CHEF + POS_ESTILO] is None:
+            ind[i * TAM_CHEF + POS_ESTILO] = restantes_estilos.pop()
+
+    # Asignar días restantes
+    usados_dias = {DIAS.MARTES, DIAS.MIERCOLES}
+    restantes_dias = [d for d in dias if d not in usados_dias]
+    for i in range(CANT_CHEF):
+        if ind[i * TAM_CHEF + POS_DIA] is None:
+            ind[i * TAM_CHEF + POS_DIA] = restantes_dias.pop()
+
+    # Asignar una estrategia (obligatorio por DEAP)
+    ind = cls(ind)
     ind.strategy = str_cls()
+
     return ind
 
-# Función de aptitud
-def evaluar_aptitud(individual):
-    aptitud = 0
-    chef_data = []
+def validar_condicion(v, index_chef, pos_att1, att1, pos_att2, att2):
+    pos_absoluta1 = index_chef * TAM_CHEF + pos_att1
+    pos_absoluta2 = index_chef * TAM_CHEF + pos_att2
+    return v[pos_absoluta1] == att1 and v[pos_absoluta2] == att2
 
-    # Organizar los datos del individuo por chef
+def validar_existencia_condicion(v, pos_att1, att1, pos_att2, att2):
+    for i in range(5):
+        if (validar_condicion(v, i, pos_att1, att1, pos_att2, att2)):
+            return True
+    return False
+
+def verificar_chef(v, index_chef, pos_att, att):
+    return v[(index_chef -1) * TAM_CHEF + pos_att] == att
+
+
+def cumple_condicion_risotto_parrilla(v):
+    dia_risotto = None
+    dia_parrilla = None
+
     for i in range(CANT_CHEF):
-        start = i * TAM_CHEF
-        end = start + TAM_CHEF
-        chef_data.append(individual[start:end])
+        plato = v[i * TAM_CHEF + POS_PLATO]
+        estilo = v[i * TAM_CHEF + POS_ESTILO]
+        dia = v[i * TAM_CHEF + POS_DIA]
 
-    # Convertir los datos a los tipos Enum para facilitar la lectura del código
-    chef_enum_data = []
-    for i in range(CANT_CHEF):
-        plato = PLATOS(chef_data[i][POS_PLATO])
-        ingrediente = INGREDIENTES(chef_data[i][POS_ING])
-        estilo = ESTILOS(chef_data[i][POS_ESTILO])
-        dia = DIAS(chef_data[i][POS_DIA])
-        chef_enum_data.append((plato, ingrediente, estilo, dia))
+        if plato == PLATOS.RISOTTO:
+            dia_risotto = dia
+        if estilo == ESTILOS.PARRILLA:
+            dia_parrilla = dia
 
-    # Verificar las condiciones del problema y asignar puntajes
-    for i in range(CANT_CHEF):
-        plato_i, ingrediente_i, estilo_i, dia_i = chef_enum_data[i]
+    return (
+            dia_risotto is not None and
+            dia_parrilla is not None and
+            dia_risotto == dia_parrilla + 1
+    )
 
-        # 1. El chef japonés cocina sushi y lo presenta el martes.
-        if i == PAISES.JAPÓN.value - 1:  # El índice 0 corresponde a Japón
-            if plato_i == PLATOS.SUSHI and dia_i == DIAS.MARTES:
-                aptitud += 5
-            else:
-                aptitud -= 3
+def cumple_condicion_ajo_tacos(v):
+    dia_ajo = None
+    dia_tacos = None
 
-        # 2. El plato presentado el viernes se cocina al horno.
-        if dia_i == DIAS.VIERNES and estilo_i == ESTILOS.HORNO:
-            aptitud += 5
-        elif dia_i == DIAS.VIERNES and estilo_i != ESTILOS.HORNO:
-            aptitud -= 3
+    for i in range(5):  # 5 chefs
+        ingrediente = v[i * TAM_CHEF + POS_ING]
+        plato = v[i * TAM_CHEF + POS_PLATO]
+        dia = v[i * TAM_CHEF + POS_DIA]
 
-        # 3. El chef italiano usa albahaca en su plato.
-        if i == PAISES.ITALIA.value - 1: # El índice 1 corresponde a Italia
-            if ingrediente_i == INGREDIENTES.ALBAHACA:
-                aptitud += 5
-            else:
-                aptitud -= 3
+        if ingrediente == INGREDIENTES.AJO:
+            dia_ajo = dia
+        if plato == PLATOS.TACOS:
+            dia_tacos = dia
 
-        # 4. El plato al vapor se presenta el mismo día que el curry.
-        if estilo_i == ESTILOS.AL_VAPOR:
-            for j in range(CANT_CHEF):
-                if i != j:
-                    plato_j, _, _, dia_j = chef_enum_data[j]
-                    if plato_j == PLATOS.CURRY and dia_j == dia_i:
-                        aptitud += 5
-                        break
-            else:
-                aptitud -= 3
+    # Verifica que ambos valores existen y cumplen la condición
+    return dia_ajo is not None and dia_tacos is not None and dia_ajo + 1 == dia_tacos
 
-        # 5. El chef francés cocina el miércoles.
-        if i == PAISES.FRANCIA.value - 1: # El índice 2 corresponde a Francia
-            if dia_i == DIAS.MIERCOLES:
-                aptitud += 5
-            else:
-                aptitud -= 3
+def evaluar_aptitud(ind):
+    puntos = 0
+    puntos += calcular_condiciones_a_cumplir(ind)
+    puntos += calcular_restricciones(ind)
 
-        # 6. El chef que usa ajo presenta su plato un día antes que el que prepara tacos.
-        if ingrediente_i == INGREDIENTES.AJO:
-            dia_ajo = dia_i
-            for j in range(CANT_CHEF):
-                if i != j:
-                    plato_j, _, _, dia_j = chef_enum_data[j]
-                    if plato_j == PLATOS.TACOS:
-                        if dia_ajo.value < 5 and dia_j == DIAS(dia_ajo.value + 1): # Comparar usando los valores de los Enum
-                            aptitud += 5
-                        else:
-                            aptitud -= 3
-                        break  # Asumimos solo un chef prepara tacos
-            else:
-                aptitud -= 1
+    return [puntos]
 
-        # 7. El chef tailandés cocina al vapor.
-        if i == PAISES.TAILANDIA.value - 1: # El índice 3 corresponde a Tailandia
-            if estilo_i == ESTILOS.AL_VAPOR:
-                aptitud += 5
-            else:
-                aptitud -= 3
 
-        # 8. El risotto se presenta un día después que el plato preparado a la parrilla.
-        if plato_i == PLATOS.RISOTTO:
-            dia_risotto = dia_i
-            if dia_risotto.value > 1:  # Verificar que el día del risotto no sea lunes
-                for j in range(CANT_CHEF):
-                    if i != j:
-                        _, _, estilo_j, dia_j = chef_enum_data[j]
-                        if estilo_j == ESTILOS.PARRILLA and dia_j == DIAS(dia_risotto.value - 1):
-                            aptitud += 5
-                            break
-                else:
-                    aptitud -= 3
-            else:
-                aptitud -= 3 
+def cuanto_se_repiten(v):
+    puntaje = 0
+    for i in range(0, TAM_CHEF * CANT_CHEF):
+        for j in range(i + TAM_CHEF, CANT_CHEF * TAM_CHEF, TAM_CHEF):
+            if v[i % (CANT_CHEF * TAM_CHEF)] == v[j % (CANT_CHEF * TAM_CHEF)]:
+                puntaje += 1
+    return puntaje
 
-        # 9. El chef español NO cocina risotto ni usa azafrán.
-        if i == PAISES.ESPAÑA.value - 1: # El índice 4 corresponde a España
-            if plato_i == PLATOS.RISOTTO or ingrediente_i == INGREDIENTES.AZAFRAN:
-                aptitud -= 3
+def calcular_condiciones_a_cumplir(ind):
+    puntos = 0
 
-        # 10. El chef que cocina ceviche presenta su plato el lunes.
-        if plato_i == PLATOS.CEVICHE:
-            if dia_i == DIAS.LUNES:
-                aptitud += 5
-            else:
-                aptitud -= 3
-    
-    # Penalizar repeticiones de platos, ingredientes, estilos o días
-    platos_usados = [chef[0] for chef in chef_enum_data]
-    ingredientes_usados = [chef[1] for chef in chef_enum_data]
-    estilos_usados = [chef[2] for chef in chef_enum_data]
-    dias_usados = [chef[3] for chef in chef_enum_data]
-    
-    if len(platos_usados) != len(set(platos_usados)):
-        aptitud -= 10  # Penalización fuerte por platos repetidos
-    if len(ingredientes_usados) != len(set(ingredientes_usados)):
-        aptitud -= 5  # Penalización moderada por ingredientes repetidos
-    if len(estilos_usados) != len(set(estilos_usados)):
-        aptitud -= 5  # Penalización moderada por estilos repetidos
-    if len(dias_usados) != len(set(dias_usados)):
-        aptitud -= 5 #Penalizacion moderada por dias repetidos
+    #El chef japonés cocina sushi y lo presenta el martes.
+    if validar_existencia_condicion(ind, POS_PLATO, PLATOS.SUSHI, POS_DIA, DIAS.MARTES):
+        puntos += 2
+    if verificar_chef(ind, PAISES.JAPON, POS_PLATO, PLATOS.SUSHI):
+        puntos += 2
 
-    return (aptitud,)
+    # El plato presentado el viernes se cocina al horno.
+    if validar_existencia_condicion(ind, POS_DIA, DIAS.VIERNES, POS_ESTILO, ESTILOS.HORNO):
+        puntos += 2
+
+    # El chef italiano usa albahaca en su plato.
+    if verificar_chef(ind, PAISES.ITALIA, POS_ING, INGREDIENTES.ALBAHACA):
+        puntos += 2
+
+    # El plato al vapor se presenta el mismo día que el curry.
+    if verificar_chef(ind, PAISES.TAILANDIA, POS_PLATO, PLATOS.CURRY):
+        puntos += 2
+
+    # El chef francés cocina el miércoles.
+    if verificar_chef(ind, PAISES.FRANCIA, POS_DIA, DIAS.MIERCOLES):
+        puntos += 2
+
+    # El chef que usa ajo presenta su plato un día antes que el que prepara tacos.
+    if cumple_condicion_ajo_tacos(ind):
+        puntos += 2
+
+    # El chef tailandés cocina al vapor.
+    if verificar_chef(ind, PAISES.TAILANDIA, POS_ESTILO, ESTILOS.AL_VAPOR):
+        puntos += 2
+
+    # El risotto se presenta un día después que el plato preparado a la parrilla.
+    if cumple_condicion_risotto_parrilla(ind):
+        puntos += 2
+
+    # El chef que cocina ceviche presenta su plato el lunes.
+    if validar_existencia_condicion(ind, POS_PLATO, PLATOS.CEVICHE, POS_DIA, DIAS.LUNES):
+        puntos += 2
+
+    return puntos
+
+
+def calcular_restricciones(ind):
+    puntos = 0
+
+    puntos -= cuanto_se_repiten(ind) * 2
+
+    #El chef español NO cocina ceviche ni usa azafrán.
+    if verificar_chef(ind, PAISES.ESPANA, POS_PLATO, PLATOS.CEVICHE):
+        puntos -= 2
+    if verificar_chef(ind, PAISES.ESPANA, POS_ING, INGREDIENTES.AZAFRAN):
+        puntos -= 2
+
+    return puntos

@@ -1,7 +1,6 @@
 # ag_festival.py
 
 from deap import algorithms, base, creator, tools
-from festival import PAISES, PLATOS, DIAS, INGREDIENTES, ESTILOS
 from festival import CANT_CHEF, TAM_CHEF
 from festival import imprimir_ind, evaluar_aptitud, crear_ind
 import numpy
