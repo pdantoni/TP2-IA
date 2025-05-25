@@ -4,8 +4,10 @@ from deap import algorithms, base, creator, tools
 from festival import CANT_CHEF, TAM_CHEF
 from festival import imprimir_ind, evaluar_aptitud, crear_ind
 import numpy
+import csv
 
 import matplotlib.pyplot as plt
+
 
 #Busca el menor peso
 creator.create("FitnessMax", base.Fitness, weights = (1.0,))
@@ -42,8 +44,9 @@ stats.register("max", numpy.max, axis=0)
 
 # Evolution
 ngen = 50 # número de generaciones
-cxpb = 0.7 # probabilidad de cruce
-mutpb = 0.3 # probabilidad de mutación
+cxpb = 0.45 # probabilidad de cruce
+mutpb = 0.55 # probabilidad de mutación
+
 # la suma de cxpb + mutpb =< 1.0
 pop, logbook = algorithms.eaMuPlusLambda(pop, toolbox, mu=npop, lambda_=npop, cxpb=cxpb, mutpb=mutpb, ngen=ngen, stats=stats, halloffame=hof)
 
@@ -64,3 +67,19 @@ front = numpy.array([(c['gen'], c['avg']) for c in logbook])
 plt.plot(front[:,0][1:-1], front[:,1][1:-1], "-bo")
 plt.axis("tight")
 plt.show()
+
+
+# Guardar estadísticas en un archivo CSV
+with open("resultados_corrida_1.csv", mode="w", newline="") as archivo_csv:
+    writer = csv.writer(archivo_csv)
+    writer.writerow(["gen", "nevals", "avg", "std", "min", "max"])
+    for entry in logbook:
+        writer.writerow([
+            entry["gen"],
+            entry["nevals"],
+            entry["avg"],
+            entry["std"],
+            entry["min"],
+            entry["max"]
+        ])
+
