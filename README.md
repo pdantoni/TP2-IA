@@ -35,7 +35,7 @@ Cinco chefs participan en un festival gastronómico. Cada uno es de un país dif
 ```bash
 pip install deap matplotlib seaborn
 ```
-Posicionarse en el directorio donde esta el archivo y correr:
+3. Posicionarse en el directorio donde esta el archivo y correr:
 ```bash
 py ag_festival.py
 ```
